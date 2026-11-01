@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>School Roku CMS</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9bb4;
+      --accent: #3b82f6;
+      --accent2: #22c55e;
+      --danger: #ef4444;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+    }
+    a { color: var(--accent); }
+    .hidden { display: none !important; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border); background: #121820;
+      position: sticky; top: 0; z-index: 10;
+    }
+    header h1 { font-size: 1.1rem; margin: 0; }
+    nav { display: flex; gap: 6px; flex-wrap: wrap; }
+    nav button, .btn {
+      background: var(--card); color: var(--text); border: 1px solid var(--border);
+      padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+    }
+    nav button.active, .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+    .btn.ok { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+    main { padding: 16px; max-width: 1100px; margin: 0 auto; }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px; margin-bottom: 16px;
+    }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+    input, select, textarea {
+      width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+      background: #0d1218; color: var(--text); margin-bottom: 10px;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem;
+      background: #334155; color: #e2e8f0;
+    }
+    .badge.online { background: #14532d; color: #bbf7d0; }
+    .badge.offline { background: #7c2d12; color: #fed7aa; }
+    .badge.never { background: #334155; color: #cbd5e1; }
+    .badge.revoked { background: #7f1d1d; color: #fecaca; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+    #login-view {
+      max-width: 380px; margin: 10vh auto; padding: 24px;
+    }
+    .preview-box {
+      border: 1px dashed var(--border); border-radius: 8px; padding: 16px;
+      min-height: 120px; background: #0a0e14;
+    }
+    .err { color: #fca5a5; font-size: 0.9rem; }
+    .okmsg { color: #86efac; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div id="login-view" class="card">
+    <h1>School Roku CMS</h1>
+    <p class="muted">Painel administrativo</p>
+    <label>E-mail</label>
+    <input id="login-email" type="email" value="admin@escola.local" />
+    <label>Senha</label>
+    <input id="login-pass" type="password" value="admin123" />
+    <button class="btn primary" style="width:100%" onclick="doLogin()">Entrar</button>
+    <p id="login-err" class="err"></p>
+  </div>
+
+  <div id="app-view" class="hidden">
+    <header>
+      <h1>School Roku CMS</h1>
+      <nav>
+        <button data-tab="tvs" class="active" onclick="showTab('tvs')">TVs</button>
+        <button data-tab="contents" onclick="showTab('contents')">Conteúdos</button>
+        <button data-tab="playlists" onclick="showTab('playlists')">Playlists</button>
+        <button data-tab="publish" onclick="showTab('publish')">Publicar</button>
+        <button data-tab="alerts" onclick="showTab('alerts')">Aviso prioritário</button>
+        <button data-tab="fair" onclick="showTab('fair')">Feira (demo)</button>
+        <button onclick="logout()">Sair</button>
+      </nav>
+    </header>
+    <main>
+      <section id="tab-tvs"></section>
+      <section id="tab-contents" class="hidden"></section>
+      <section id="tab-playlists" class="hidden"></section>
+      <section id="tab-publish" class="hidden"></section>
+      <section id="tab-alerts" class="hidden"></section>
+      <section id="tab-fair" class="hidden"></section>
+    </main>
+  </div>
+
+  <script>
+    const API = localStorage.getItem('apiBase') || (location.port === '3080' ? '' : 'http://localhost:3080');
+    let token = localStorage.getItem('token') || '';
+    let devices = [], contents = [], playlists = [], groups = [], publications = [], alerts = [];
+
+    async function api(path, opts = {}) {
+      const headers = { ...(opts.headers || {}) };
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      if (opts.body && !(opts.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(opts.body);
+      }
+      const res = await fetch(API + path, { ...opts, headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      return data;
+    }
+
+    async function doLogin() {
+      try {
+        document.getElementById('login-err').textContent = '';
+        const data = await api('/api/auth/login', {
+          method: 'POST',
+          body: {
+            email: document.getElementById('login-email').value,
+            password: document.getElementById('login-pass').value,
+          },
+        });
+        token = data.token;
+        localStorage.setItem('token', token);
+        document.getElementById('login-view').classList.add('hidden');
+        document.getElementById('app-view').classList.remove('hidden');
+        await refreshAll();
+      } catch (e) {
+        document.getElementById('login-err').textContent = e.message;
+      }
+    }
+
+    function logout() {
+      token = '';
+      localStorage.removeItem('token');
+      location.reload();
+    }
+
+    function showTab(name) {
+      document.querySelectorAll('nav button[data-tab]').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+      ['tvs', 'contents', 'playlists', 'publish', 'alerts', 'fair'].forEach((t) => {
+        document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
+      });
+      if (name === 'tvs') renderTvs();
+      if (name === 'contents') renderContents();
+      if (name === 'playlists') renderPlaylists();
+      if (name === 'publish') renderPublish();
+      if (name === 'alerts') renderAlerts();
+      if (name === 'fair') renderFair();
+    }
+
+    async function refreshAll() {
+      const [d, c, p, g, pub, a] = await Promise.all([
+        api('/api/devices'),
+        api('/api/contents'),
+        api('/api/playlists'),
+        api('/api/groups'),
+        api('/api/publications'),
+        api('/api/priority-alerts'),
+      ]);
+      devices = d.devices; contents = c.contents; playlists = p.playlists;
+      groups = g.groups; publications = pub.publications; alerts = a.alerts;
+      renderTvs();
+    }
+
+    function statusBadge(s) {
+      if (s === 'online') return '<span class="badge online">conectado</span>';
+      if (s === 'offline') return '<span class="badge offline">sem comunicação</span>';
+      if (s === 'never_connected') return '<span class="badge never">nunca conectou</span>';
+      return '<span class="badge">' + s + '</span>';
+    }
+
+    function renderTvs() {
+      const el = document.getElementById('tab-tvs');
+      el.innerHTML = `
+        <div class="card">
+          <h2>Vincular TV</h2>
+          <p class="muted">Digite o código exibido no aplicativo Roku (válido por ~15 min, uso único).</p>
+          <div class="row">
+            <input id="pair-code" placeholder="Código (ex: AB12CD)" style="max-width:160px" />
+            <input id="pair-name" placeholder="Nome (ex: Quadra)" style="max-width:200px" />
+            <input id="pair-loc" placeholder="Localização" style="max-width:200px" />
+            <button class="btn primary" onclick="pairDevice()">Vincular</button>
+          </div>
+          <p id="pair-msg" class="muted"></p>
+        </div>
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <h2>TVs</h2>
+            <button class="btn" onclick="refreshAll()">Atualizar</button>
+          </div>
+          <p class="muted">Status com base em última comunicação (janela padrão: 90 s).</p>
+          <table>
+            <thead><tr><th>Nome</th><th>Status</th><th>Última comunicação</th><th>Versão atribuída</th><th>Confirmada</th><th></th></tr></thead>
+            <tbody>
+              ${devices.map((d) => `
+                <tr>
+                  <td><strong>${esc(d.name)}</strong><br/><span class="muted">${esc(d.location || '')}</span>
+                    ${d.status === 'revoked' ? '<br/><span class="badge revoked">revogada</span>' : ''}
+                  </td>
+                  <td>${statusBadge(d.connectionStatus)}</td>
+                  <td class="muted">${d.lastSeenAt ? new Date(d.lastSeenAt).toLocaleString() : '—'}</td>
+                  <td class="muted" style="font-size:0.75rem">${esc(d.assignedVersion || '—')}</td>
+                  <td class="muted" style="font-size:0.75rem">${esc(d.confirmedVersion || '—')}</td>
+                  <td class="row">
+                    <button class="btn" onclick='editDevice(${JSON.stringify(d.id)})'>Editar</button>
+                    ${d.status !== 'revoked' ? `<button class="btn danger" onclick="revokeDevice('${d.id}')">Revogar</button>` : ''}
+                  </td>
+                </tr>
+              `).join('') || '<tr><td colspan="6" class="muted">Nenhuma TV vinculada</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Grupos</h3>
+          <div class="row">
+            <input id="grp-name" placeholder="Nome do grupo" style="max-width:220px" />
+            <button class="btn" onclick="createGroup()">Criar grupo</button>
+          </div>
+          <ul>${groups.map((g) => `<li>${esc(g.name)} <button class="btn" onclick="deleteGroup('${g.id}')">Excluir</button></li>`).join('') || '<li class="muted">Nenhum grupo</li>'}</ul>
+        </div>
+      `;
+    }
+
+    async function pairDevice() {
+      const msg = document.getElementById('pair-msg');
+      try {
+        await api('/api/devices/pair', {
+          method: 'POST',
+          body: {
+            code: document.getElementById('pair-code').value,
+            name: document.getElementById('pair-name').value,
+            location: document.getElementById('pair-loc').value,
+          },
+        });
+        msg.className = 'okmsg';
+        msg.textContent = 'TV vinculada com sucesso.';
+        await refreshAll();
+      } catch (e) {
+        msg.className = 'err';
+        msg.textContent = e.message;
+      }
+    }
+
+    async function revokeDevice(id) {
+      if (!confirm('Revogar esta TV? Ela deixará de receber conteúdo.')) return;
+      await api('/api/devices/' + id + '/revoke', { method: 'POST' });
+      await refreshAll();
+    }
+
+    async function editDevice(id) {
+      const d = devices.find((x) => x.id === id);
+      if (!d) return;
+      const name = prompt('Nome', d.name);
+      if (name === null) return;
+      const location = prompt('Localização', d.location || '');
+      await api('/api/devices/' + id, { method: 'PUT', body: { name, location } });
+      await refreshAll();
+    }
+
+    async function createGroup() {
+      const name = document.getElementById('grp-name').value;
+      if (!name) return;
+      await api('/api/groups', { method: 'POST', body: { name } });
+      await refreshAll();
+    }
+    async function deleteGroup(id) {
+      if (!confirm('Excluir grupo?')) return;
+      await api('/api/groups/' + id, { method: 'DELETE' });
+      await refreshAll();
+    }
+
+    function renderContents() {
+      const el = document.getElementById('tab-contents');
+      el.innerHTML = `
+        <div class="card">
+          <h2>Novo conteúdo</h2>
+          <label>Tipo</label>
+          <select id="c-type" onchange="toggleContentFields()">
+            <option value="text">Aviso em texto</option>
+            <option value="image">Imagem</option>
+            <option value="video">Vídeo (MP4)</option>
+            <option value="slide">Slide (título + descrição + imagem)</option>
+            <option value="schedule">Programação do evento</option>
+            <option value="qrcode">QR Code</option>
+            <option value="countdown">Contagem regressiva</option>
+          </select>
+          <label>Título</label>
+          <input id="c-title" />
+          <div id="c-body-wrap"><label>Texto / corpo</label><textarea id="c-body"></textarea></div>
+          <div id="c-url-wrap" class="hidden"><label>URL (para QR Code)</label><input id="c-url" placeholder="https://..." /></div>
+          <div id="c-target-wrap" class="hidden"><label>Data/hora alvo (countdown)</label><input id="c-target" type="datetime-local" /></div>
+          <div id="c-file-wrap" class="hidden">
+            <label>Arquivo (imagem: PNG/JPG/GIF/WebP ≤5MB · vídeo: MP4 ≤150MB)</label>
+            <input id="c-file" type="file" />
+          </div>
+          <label>Duração na tela (segundos, textos/imagens)</label>
+          <input id="c-dur" type="number" value="15" min="3" />
+          <button class="btn primary" onclick="createContent()">Salvar conteúdo</button>
+          <p id="c-msg" class="muted"></p>
+        </div>
+        <div class="card">
+          <h2>Conteúdos</h2>
+          <table>
+            <thead><tr><th>Título</th><th>Tipo</th><th>Duração</th><th></th></tr></thead>
+            <tbody>
+              ${contents.map((c) => `
+                <tr>
+                  <td>${esc(c.title || c.body?.slice(0,40) || c.id)}</td>
+                  <td><span class="badge">${c.type}</span></td>
+                  <td>${c.durationSeconds || '—'}s</td>
+                  <td>
+                    <button class="btn" onclick="setDefault('${c.id}')">Definir como padrão</button>
+                    <button class="btn danger" onclick="deleteContent('${c.id}')">Excluir</button>
+                  </td>
+                </tr>
+              `).join('') || '<tr><td colspan="4" class="muted">Nenhum conteúdo</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      `;
+      toggleContentFields();
+    }
+
+    function toggleContentFields() {
+      const t = document.getElementById('c-type')?.value;
+      if (!t) return;
+      document.getElementById('c-body-wrap').classList.toggle('hidden', !['text','slide','schedule'].includes(t));
+      document.getElementById('c-url-wrap').classList.toggle('hidden', t !== 'qrcode');
+      document.getElementById('c-target-wrap').classList.toggle('hidden', t !== 'countdown');
+      document.getElementById('c-file-wrap').classList.toggle('hidden', !['image','video','slide'].includes(t));
+    }
+
+    async function createContent() {
+      const msg = document.getElementById('c-msg');
+      try {
+        const type = document.getElementById('c-type').value;
+        let filePath = null, fileHash = null;
+        const fileInput = document.getElementById('c-file');
+        if (fileInput?.files?.[0]) {
+          const fd = new FormData();
+          fd.append('file', fileInput.files[0]);
+          fd.append('kind', type === 'video' ? 'video' : 'image');
+          const up = await api('/api/upload', { method: 'POST', body: fd });
+          filePath = up.filePath;
+          fileHash = up.fileHash;
+        }
+        const targetRaw = document.getElementById('c-target')?.value;
+        await api('/api/contents', {
+          method: 'POST',
+          body: {
+            type,
+            title: document.getElementById('c-title').value,
+            body: document.getElementById('c-body')?.value || '',
+            urlTarget: document.getElementById('c-url')?.value || '',
+            targetAt: targetRaw ? new Date(targetRaw).toISOString() : null,
+            durationSeconds: Number(document.getElementById('c-dur').value) || 15,
+            filePath,
+            fileHash,
+          },
+        });
+        msg.className = 'okmsg';
+        msg.textContent = 'Conteúdo criado.';
+        await refreshAll();
+        showTab('contents');
+      } catch (e) {
+        msg.className = 'err';
+        msg.textContent = e.message;
+      }
+    }
+
+    async function deleteContent(id) {
+      if (!confirm('Excluir este conteúdo?')) return;
+      await api('/api/contents/' + id, { method: 'DELETE' });
+      await refreshAll();
+      showTab('contents');
+    }
+    async function setDefault(id) {
+      await api('/api/settings/default-content', { method: 'POST', body: { contentId: id } });
+      alert('Conteúdo padrão definido. Usado quando não há programação ativa.');
+    }
+
+    function renderPlaylists() {
+      const el = document.getElementById('tab-playlists');
+      el.innerHTML = `
+        <div class="card">
+          <h2>Nova playlist</h2>
+          <label>Nome</label>
+          <input id="pl-name" placeholder="Ex: Manhã - Entrada" />
+          <label>Itens (selecione conteúdos e ordem)</label>
+          <div id="pl-items"></div>
+          <button class="btn" onclick="addPlItem()">+ item</button>
+          <label><input type="checkbox" id="pl-loop" checked /> Repetir playlist</label>
+          <br/><button class="btn primary" onclick="createPlaylist()">Salvar playlist</button>
+          <p id="pl-msg" class="muted"></p>
+        </div>
+        <div class="card">
+          <h2>Playlists</h2>
+          ${playlists.map((pl) => `
+            <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+              <strong>${esc(pl.name)}</strong> <span class="badge">v${pl.version || 1}</span>
+              <span class="muted"> · ${ (pl.items||[]).length } itens · loop: ${pl.loop !== false}</span>
+              <button class="btn danger" onclick="deletePlaylist('${pl.id}')">Excluir</button>
+              <div class="preview-box muted" style="margin-top:8px">
+                Prévia (validação final na TV real):
+                <ol>${(pl.items||[]).map((it) => {
+                  const c = contents.find((x) => x.id === it.contentId);
+                  return `<li>${c ? esc(c.title || c.type) : it.contentId} (${it.durationSeconds || 15}s)</li>`;
+                }).join('')}</ol>
+              </div>
+            </div>
+          `).join('') || '<p class="muted">Nenhuma playlist</p>'}
+        </div>
+      `;
+      addPlItem();
+    }
+
+    function addPlItem() {
+      const box = document.getElementById('pl-items');
+      if (!box) return;
+      const div = document.createElement('div');
+      div.className = 'row';
+      div.innerHTML = `
+        <select class="pl-content" style="flex:1">
+          ${contents.map((c) => `<option value="${c.id}">${esc(c.title || c.type)} (${c.type})</option>`).join('')}
+        </select>
+        <input class="pl-dur" type="number" value="15" style="width:80px" title="Duração (s)" />
+      `;
+      box.appendChild(div);
+    }
+
+    async function createPlaylist() {
+      const items = [...document.querySelectorAll('#pl-items .row')].map((row) => ({
+        contentId: row.querySelector('.pl-content').value,
+        durationSeconds: Number(row.querySelector('.pl-dur').value) || 15,
+      })).filter((x) => x.contentId);
+      try {
+        await api('/api/playlists', {
+          method: 'POST',
+          body: {
+            name: document.getElementById('pl-name').value || 'Playlist',
+            items,
+            loop: document.getElementById('pl-loop').checked,
+          },
+        });
+        document.getElementById('pl-msg').className = 'okmsg';
+        document.getElementById('pl-msg').textContent = 'Playlist salva.';
+        await refreshAll();
+        showTab('playlists');
+      } catch (e) {
+        document.getElementById('pl-msg').className = 'err';
+        document.getElementById('pl-msg').textContent = e.message;
+      }
+    }
+
+    async function deletePlaylist(id) {
+      if (!confirm('Excluir playlist?')) return;
+      await api('/api/playlists/' + id, { method: 'DELETE' });
+      await refreshAll();
+      showTab('playlists');
+    }
+
+    function renderPublish() {
+      const el = document.getElementById('tab-publish');
+      el.innerHTML = `
+        <div class="card">
+          <h2>Publicar playlist</h2>
+          <label>Playlist</label>
+          <select id="pub-pl">${playlists.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>
+          <label>Alvo</label>
+          <select id="pub-target" onchange="togglePubTarget()">
+            <option value="all">Todas as TVs</option>
+            <option value="devices">TVs específicas</option>
+            <option value="groups">Grupos</option>
+          </select>
+          <div id="pub-devices" class="hidden">
+            ${devices.filter(d=>d.status!=='revoked').map((d) => `
+              <label><input type="checkbox" class="pub-dev" value="${d.id}" /> ${esc(d.name)}</label>
+            `).join('')}
+          </div>
+          <div id="pub-groups" class="hidden">
+            ${groups.map((g) => `
+              <label><input type="checkbox" class="pub-grp" value="${g.id}" /> ${esc(g.name)}</label>
+            `).join('')}
+          </div>
+          <label>Início (opcional)</label>
+          <input id="pub-start" type="datetime-local" />
+          <label>Fim (opcional)</label>
+          <input id="pub-end" type="datetime-local" />
+          <button class="btn primary" onclick="doPublish()">Publicar agora / agendar</button>
+          <p id="pub-msg" class="muted"></p>
+        </div>
+        <div class="card">
+          <h3>Publicações</h3>
+          <table>
+            <thead><tr><th>Playlist</th><th>Status</th><th>Início</th><th>Fim</th><th></th></tr></thead>
+            <tbody>
+              ${publications.map((pub) => {
+                const pl = playlists.find((x) => x.id === pub.playlistId);
+                return `<tr>
+                  <td>${esc(pl?.name || pub.playlistId)}</td>
+                  <td><span class="badge">${pub.status}</span></td>
+                  <td class="muted">${pub.startsAt ? new Date(pub.startsAt).toLocaleString() : '—'}</td>
+                  <td class="muted">${pub.endsAt ? new Date(pub.endsAt).toLocaleString() : '—'}</td>
+                  <td>${pub.status==='active'?`<button class="btn" onclick="cancelPub('${pub.id}')">Cancelar</button>`:''}</td>
+                </tr>`;
+              }).join('') || '<tr><td colspan="5" class="muted">Nenhuma</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function togglePubTarget() {
+      const v = document.getElementById('pub-target').value;
+      document.getElementById('pub-devices').classList.toggle('hidden', v !== 'devices');
+      document.getElementById('pub-groups').classList.toggle('hidden', v !== 'groups');
+    }
+
+    async function doPublish() {
+      const target = document.getElementById('pub-target').value;
+      const body = {
+        playlistId: document.getElementById('pub-pl').value,
+        targetAll: target === 'all',
+        deviceIds: target === 'devices' ? [...document.querySelectorAll('.pub-dev:checked')].map((x) => x.value) : [],
+        groupIds: target === 'groups' ? [...document.querySelectorAll('.pub-grp:checked')].map((x) => x.value) : [],
+      };
+      const s = document.getElementById('pub-start').value;
+      const e = document.getElementById('pub-end').value;
+      if (s) body.startsAt = new Date(s).toISOString();
+      if (e) body.endsAt = new Date(e).toISOString();
+      try {
+        await api('/api/publications', { method: 'POST', body });
+        document.getElementById('pub-msg').className = 'okmsg';
+        document.getElementById('pub-msg').textContent = 'Publicado. TVs atualizam no próximo ciclo de polling (~20s).';
+        await refreshAll();
+        showTab('publish');
+      } catch (err) {
+        document.getElementById('pub-msg').className = 'err';
+        document.getElementById('pub-msg').textContent = err.message;
+      }
+    }
+
+    async function cancelPub(id) {
+      await api('/api/publications/' + id + '/cancel', { method: 'POST' });
+      await refreshAll();
+      showTab('publish');
+    }
+
+    function renderAlerts() {
+      const el = document.getElementById('tab-alerts');
+      el.innerHTML = `
+        <div class="card">
+          <h2>Publicar aviso prioritário</h2>
+          <p class="muted">Interrompe a programação normal. Ao terminar ou cancelar, a TV volta à playlist.</p>
+          <label>Mensagem</label>
+          <textarea id="al-msg"></textarea>
+          <label>Duração (segundos)</label>
+          <input id="al-dur" type="number" value="60" min="5" />
+          <label>TVs (vazio = todas ativas)</label>
+          ${devices.filter(d=>d.status!=='revoked').map((d) => `
+            <label><input type="checkbox" class="al-dev" value="${d.id}" /> ${esc(d.name)}</label>
+          `).join('')}
+          <br/><button class="btn danger" onclick="sendAlert()">Confirmar e publicar aviso</button>
+          <p id="al-status" class="muted"></p>
+        </div>
+        <div class="card">
+          <h3>Avisos recentes</h3>
+          ${alerts.slice().reverse().map((a) => `
+            <div style="margin-bottom:8px">
+              <strong>${esc(a.message)}</strong>
+              <span class="badge">${a.active ? 'ativo' : 'encerrado'}</span>
+              <span class="muted">${a.durationSeconds}s · até ${new Date(a.endsAt).toLocaleString()}</span>
+              ${a.active ? `<button class="btn" onclick="cancelAlert('${a.id}')">Cancelar</button>` : ''}
+            </div>
+          `).join('') || '<p class="muted">Nenhum</p>'}
+        </div>
+      `;
+    }
+
+    async function sendAlert() {
+      if (!confirm('Publicar aviso prioritário nas TVs selecionadas (ou todas)?')) return;
+      try {
+        await api('/api/priority-alerts', {
+          method: 'POST',
+          body: {
+            message: document.getElementById('al-msg').value,
+            durationSeconds: Number(document.getElementById('al-dur').value) || 60,
+            deviceIds: [...document.querySelectorAll('.al-dev:checked')].map((x) => x.value),
+          },
+        });
+        document.getElementById('al-status').className = 'okmsg';
+        document.getElementById('al-status').textContent = 'Aviso publicado.';
+        await refreshAll();
+        showTab('alerts');
+      } catch (e) {
+        document.getElementById('al-status').className = 'err';
+        document.getElementById('al-status').textContent = e.message;
+      }
+    }
+
+    async function cancelAlert(id) {
+      await api('/api/priority-alerts/' + id + '/cancel', { method: 'POST' });
+      await refreshAll();
+      showTab('alerts');
+    }
+
+    async function renderFair() {
+      const el = document.getElementById('tab-fair');
+      try {
+        const { fair } = await api('/api/fair');
+        el.innerHTML = `
+          <div class="card">
+            <h2>Integração feira / caça ao tesouro</h2>
+            <p class="muted">Módulo preparado. Dados abaixo são <strong>demonstrativos</strong> (isDemo=${fair.isDemo}).
+            Não exibe respostas, pistas bloqueadas, códigos privados ou localização dos baús.</p>
+            <label>Equipes participantes</label>
+            <input id="fair-part" type="number" value="${fair.teamsParticipating}" />
+            <label>Equipes que concluíram</label>
+            <input id="fair-done" type="number" value="${fair.teamsCompleted}" />
+            <label>Status da atividade</label>
+            <select id="fair-status">
+              <option value="not_started" ${fair.activityStatus==='not_started'?'selected':''}>Não iniciada</option>
+              <option value="running" ${fair.activityStatus==='running'?'selected':''}>Em andamento</option>
+              <option value="finished" ${fair.activityStatus==='finished'?'selected':''}>Encerrada</option>
+            </select>
+            <button class="btn primary" onclick="saveFair()">Salvar dados demo</button>
+            <p id="fair-msg" class="muted"></p>
+          </div>
+        `;
+      } catch (e) {
+        el.innerHTML = `<p class="err">${e.message}</p>`;
+      }
+    }
+
+    async function saveFair() {
+      await api('/api/fair', {
+        method: 'PUT',
+        body: {
+          teamsParticipating: Number(document.getElementById('fair-part').value),
+          teamsCompleted: Number(document.getElementById('fair-done').value),
+          activityStatus: document.getElementById('fair-status').value,
+        },
+      });
+      document.getElementById('fair-msg').className = 'okmsg';
+      document.getElementById('fair-msg').textContent = 'Salvo (ainda demo).';
+    }
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    (async function init() {
+      if (token) {
+        try {
+          await api('/api/auth/me');
+          document.getElementById('login-view').classList.add('hidden');
+          document.getElementById('app-view').classList.remove('hidden');
+          await refreshAll();
+        } catch {
+          token = '';
+          localStorage.removeItem('token');
+        }
+      }
+    })();
+  </script>
+</body>
+</html>

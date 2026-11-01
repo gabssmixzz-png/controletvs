@@ -1,0 +1,14 @@
+{
+  "name": "school-roku-cms-backend",
+  "version": "1.0.0",
+  "description": "Backend do sistema de conteúdo para TVs Roku escolares",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
