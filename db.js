@@ -19,7 +19,7 @@ const DEFAULT_DB = {
  fairDemo:{enabled:true,isDemo:true,teamsParticipating:12,teamsCompleted:3,activityStatus:'not_started',
  messages:[{id:'demo-1',text:'[DEMO] Caça ao tesouro começa às 14h no pátio.',createdAt:new Date().toISOString()}]}
 };
-let state=null, writeQueue=Promise.resolve(), lastError=null;
+let state=null, writeQueue=Promise.resolve();
 function ensureDir(dir){if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});}
 function localLoad(){
  ensureDir(DATA_DIR);
@@ -64,12 +64,12 @@ function save(value){
  state=value;
  const snapshot=JSON.parse(JSON.stringify(value));
  localSave(snapshot);
- writeQueue=writeQueue.then(()=>persist(snapshot)).catch(error=>{
-  lastError=error;console.error('[db] Falha ao salvar no Supabase:',error.message);
- });
+ // Serializa gravações e propaga falhas para a rota que solicitou o salvamento.
+ // Uma falha anterior não impede tentativas posteriores.
+ writeQueue=writeQueue.catch(()=>{}).then(()=>persist(snapshot));
  return writeQueue;
 }
-async function flush(){await writeQueue;if(lastError)throw lastError;}
+async function flush(){await writeQueue;}
 function id(prefix=''){return prefix+crypto.randomBytes(8).toString('hex');}
 function now(){return new Date().toISOString();}
 module.exports={load,save,id,now,initialize,flush,STORAGE_DIR,DATA_DIR,DB_FILE};
