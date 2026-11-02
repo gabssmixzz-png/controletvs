@@ -19,3 +19,13 @@ O backend atual usa chamadas síncronas `load()/save()` e grava uploads em disco
 - `SUPABASE_STORAGE_BUCKET`: `school-roku-media`.
 
 Não configure as variáveis nem execute o deploy até o backend adaptado e a migração dos dados serem testados. Não habilite acesso público à tabela.
+
+## Implementação nesta branch
+- `db.js` usa a tabela JSONB via Supabase REST e mantém cópia local; se a conexão remota falhar, o servidor não inicia em modo vazio.
+- `server.js` faz upload e entrega de mídia pelo bucket privado, incluindo suporte a requisições HTTP Range para vídeo.
+- Sem as variáveis Supabase, o backend mantém o modo local antigo para desenvolvimento.
+- O estado local existente é enviado apenas quando a tabela ainda não tem a linha `main`. Se já houver estado remoto, ele prevalece.
+
+## Configurar no Render (somente depois de executar o SQL e revisar a branch)
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e opcionalmente `SUPABASE_STORAGE_BUCKET=school-roku-media`.
+Nunca coloque a service role key no GitHub, painel web ou app Roku.
