@@ -6,7 +6,7 @@
 const { load, save, id, now } = require('./db');
 const { hashPassword } = require('./auth');
 
-function seed() {
+async function seed() {
   const db = load();
   const configuredEmail = (process.env.ADMIN_EMAIL || '').toLowerCase().trim();
   const configuredPassword = process.env.ADMIN_PASSWORD || '';
@@ -26,7 +26,7 @@ function seed() {
     admin.passwordHash = hashPassword(configuredPassword);
     admin.name = admin.name || 'Administrador';
     admin.role = 'admin';
-    save(db);
+    await save(db);
     console.log(`[seed] Usuário administrador configurado: ${configuredEmail}`);
   } else if (db.users.length === 0) {
     // Acesso temporário apenas para instalação local; configure as variáveis no Render.
@@ -38,7 +38,7 @@ function seed() {
       role: 'admin',
       createdAt: now(),
     });
-    save(db);
+    await save(db);
     console.log('[seed] Usuário local criado. Configure ADMIN_EMAIL e ADMIN_PASSWORD no Render.');
   }
   return db;
