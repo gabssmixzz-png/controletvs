@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "version": 1,
+    "createdAt": "2026-11-01T23:32:16.687Z"
+  },
+  "users": [
+    {
+      "id": "usr_d5e5a21975fec49d",
+      "email": "admin@escola.local",
+      "name": "Administrador",
+      "passwordHash": "9acae0671b91803bc7b17756056b6aab:cfe310aac3a65bd4e23d352c355ac57dad25d8af4ae80c5be9a174af594d157e6900a0741bc366e2d01e055c33e07878da5167b55d03887830b39a5d12ccad37",
+      "role": "admin",
+      "createdAt": "2026-11-01T23:32:16.811Z"
+    }
+  ],
+  "devices": [],
+  "groups": [],
+  "contents": [],
+  "playlists": [],
+  "publications": [],
+  "priorityAlerts": [],
+  "pairingCodes": [],
+  "auditLog": [],
+  "settings": {
+    "pollIntervalSeconds": 20,
+    "offlineGraceSeconds": 90,
+    "pairingCodeTtlSeconds": 900,
+    "defaultContentId": null,
+    "organizationName": "Escola"
+  },
+  "fairDemo": {
+    "enabled": true,
+    "isDemo": true,
+    "teamsParticipating": 12,
+    "teamsCompleted": 3,
+    "activityStatus": "not_started",
+    "messages": [
+      {
+        "id": "demo-1",
+        "text": "[DEMO] Caça ao tesouro começa às 14h no pátio.",
+        "createdAt": "2026-11-01T23:32:16.688Z"
+      }
+    ]
+  }
+}
