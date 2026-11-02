@@ -279,7 +279,18 @@ async function handler(req, res) {
     }
 
     if (method === 'GET' && p.startsWith('/media/')) {
-      const rel = decodeURIComponent(p.slice('/media/'.length));
+      let rel;
+      try {
+        rel = decodeURIComponent(p.slice('/media/'.length));
+      } catch {
+        send(res, 400, { error: 'Caminho de mídia inválido' });
+        return;
+      }
+      const segments = rel.replace(/\\\\/g, '/').split('/');
+      if (!rel || segments.some((part) => !part || part === '.' || part === '..' || part.includes('\\0'))) {
+        send(res, 400, { error: 'Caminho de mídia inválido' });
+        return;
+      }
       if (USE_SUPABASE_STORAGE) {
         const objectUrl = SUPABASE_URL + '/storage/v1/object/' + MEDIA_BUCKET + '/' + rel.split('/').map(encodeURIComponent).join('/');
         const headers = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY };
