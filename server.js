@@ -381,7 +381,7 @@ async function handler(req, res) {
       const db = load();
       db.settings = { ...db.settings, ...body };
       audit(db, 'settings.update', payload.email, body);
-      save(db);
+      await save(db);
       send(res, 200, { settings: db.settings });
       return;
     }
@@ -424,7 +424,7 @@ async function handler(req, res) {
       pairing.deviceId = device.id;
       db.devices.push(device);
       audit(db, 'device.pair', payload.email, { deviceId: device.id, name, code });
-      save(db);
+      await save(db);
       send(res, 201, {
         device: {
           id: device.id, name: device.name, description: device.description,
@@ -478,7 +478,7 @@ async function handler(req, res) {
       });
       d.updatedAt = now();
       audit(db, 'device.update', payload.email, { deviceId, body });
-      save(db);
+      await save(db);
       send(res, 200, { device: { ...d, token: undefined } });
       return;
     }
@@ -494,7 +494,7 @@ async function handler(req, res) {
       d.token = deviceToken();
       d.updatedAt = now();
       audit(db, 'device.revoke', payload.email, { deviceId });
-      save(db);
+      await save(db);
       send(res, 200, { ok: true });
       return;
     }
@@ -513,7 +513,7 @@ async function handler(req, res) {
       const g = { id: id('grp_'), name: body.name || 'Grupo', description: body.description || '', createdAt: now() };
       db.groups.push(g);
       audit(db, 'group.create', payload.email, { groupId: g.id });
-      save(db);
+      await save(db);
       send(res, 201, { group: g });
       return;
     }
@@ -526,7 +526,7 @@ async function handler(req, res) {
       if (!g) { send(res, 404, { error: 'Grupo não encontrado' }); return; }
       if (body.name !== undefined) g.name = body.name;
       if (body.description !== undefined) g.description = body.description;
-      save(db);
+      await save(db);
       send(res, 200, { group: g });
       return;
     }
@@ -538,7 +538,7 @@ async function handler(req, res) {
       db.groups = db.groups.filter((x) => x.id !== gid);
       db.devices.forEach((d) => { d.groupIds = (d.groupIds || []).filter((x) => x !== gid); });
       audit(db, 'group.delete', payload.email, { groupId: gid });
-      save(db);
+      await save(db);
       send(res, 200, { ok: true });
       return;
     }
@@ -568,7 +568,7 @@ async function handler(req, res) {
       };
       db.contents.push(content);
       audit(db, 'content.create', payload.email, { contentId: content.id, type: content.type });
-      save(db);
+      await save(db);
       send(res, 201, { content: enrichContent(content) });
       return;
     }
@@ -585,7 +585,7 @@ async function handler(req, res) {
       });
       c.updatedAt = now();
       audit(db, 'content.update', payload.email, { contentId: cid });
-      save(db);
+      await save(db);
       send(res, 200, { content: enrichContent(c) });
       return;
     }
@@ -601,7 +601,7 @@ async function handler(req, res) {
       });
       if (db.settings.defaultContentId === cid) db.settings.defaultContentId = null;
       audit(db, 'content.delete', payload.email, { contentId: cid });
-      save(db);
+      await save(db);
       send(res, 200, { ok: true });
       return;
     }
@@ -689,7 +689,7 @@ async function handler(req, res) {
       };
       db.playlists.push(pl);
       audit(db, 'playlist.create', payload.email, { playlistId: pl.id });
-      save(db);
+      await save(db);
       send(res, 201, { playlist: pl });
       return;
     }
@@ -707,7 +707,7 @@ async function handler(req, res) {
       pl.version = (pl.version || 1) + 1;
       pl.updatedAt = now();
       audit(db, 'playlist.update', payload.email, { playlistId: pid });
-      save(db);
+      await save(db);
       send(res, 200, { playlist: pl });
       return;
     }
@@ -718,7 +718,7 @@ async function handler(req, res) {
       const db = load();
       db.playlists = db.playlists.filter((x) => x.id !== pid);
       audit(db, 'playlist.delete', payload.email, { playlistId: pid });
-      save(db);
+      await save(db);
       send(res, 200, { ok: true });
       return;
     }
@@ -752,7 +752,7 @@ async function handler(req, res) {
         if (hit) d.assignedVersion = ver;
       });
       audit(db, 'publication.create', payload.email, { publicationId: pub.id });
-      save(db);
+      await save(db);
       send(res, 201, { publication: pub });
       return;
     }
@@ -765,7 +765,7 @@ async function handler(req, res) {
       if (!pub) { send(res, 404, { error: 'Publicação não encontrada' }); return; }
       pub.status = 'cancelled';
       audit(db, 'publication.cancel', payload.email, { publicationId: pubId });
-      save(db);
+      await save(db);
       send(res, 200, { publication: pub });
       return;
     }
@@ -794,7 +794,7 @@ async function handler(req, res) {
       };
       db.priorityAlerts.push(alert);
       audit(db, 'priority_alert.create', payload.email, { alertId: alert.id });
-      save(db);
+      await save(db);
       send(res, 201, { alert });
       return;
     }
@@ -809,7 +809,7 @@ async function handler(req, res) {
       alert.endsAt = now();
       alert.updatedAt = now();
       audit(db, 'priority_alert.cancel', payload.email, { alertId: aid });
-      save(db);
+      await save(db);
       send(res, 200, { alert });
       return;
     }
@@ -821,7 +821,7 @@ async function handler(req, res) {
       const db = load();
       db.settings.defaultContentId = body.contentId || null;
       audit(db, 'settings.default_content', payload.email, body);
-      save(db);
+      await save(db);
       send(res, 200, { settings: db.settings });
       return;
     }
@@ -842,7 +842,7 @@ async function handler(req, res) {
       const body = await readJson(req);
       const db = load();
       db.fairDemo = { ...db.fairDemo, ...body, isDemo: true };
-      save(db);
+      await save(db);
       send(res, 200, { fair: db.fairDemo });
       return;
     }
@@ -856,7 +856,7 @@ async function handler(req, res) {
       db.pairingCodes = db.pairingCodes.filter(
         (c) => !c.used || new Date(c.expiresAt).getTime() > Date.now() - 3600000
       );
-      save(db);
+      await save(db);
       send(res, 200, { code, expiresAt, expiresInSeconds: db.settings.pairingCodeTtlSeconds || 900 });
       return;
     }
@@ -908,7 +908,7 @@ async function handler(req, res) {
       d.lastSeenAt = now();
       if (body.confirmedVersion) d.confirmedVersion = body.confirmedVersion;
       d.updatedAt = now();
-      save(db);
+      await save(db);
       const prog = resolvePlaylistForDevice(db, d);
       send(res, 200, {
         ok: true, programVersion: prog.version,
@@ -925,12 +925,41 @@ async function handler(req, res) {
   }
 }
 
+async function migrateLocalMedia() {
+  if (!USE_SUPABASE_STORAGE || !fs.existsSync(UPLOAD_DIR)) return;
+  const mimeByExt = {
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+    '.gif': 'image/gif', '.webp': 'image/webp', '.mp4': 'video/mp4', '.mov': 'video/quicktime',
+  };
+  async function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) { await walk(full); continue; }
+      if (!entry.isFile()) continue;
+      const rel = path.relative(UPLOAD_DIR, full).split(path.sep).join('/');
+      const ext = path.extname(full).toLowerCase();
+      const contentType = mimeByExt[ext];
+      if (!contentType) { console.warn('[storage] Arquivo ignorado (formato não suportado):', rel); continue; }
+      const objectUrl = SUPABASE_URL + '/storage/v1/object/' + MEDIA_BUCKET + '/' + rel.split('/').map(encodeURIComponent).join('/');
+      const uploaded = await fetch(objectUrl, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': contentType, 'x-upsert': 'true' },
+        body: fs.readFileSync(full),
+      });
+      if (!uploaded.ok) throw new Error('Falha ao migrar mídia ' + rel + ': ' + (await uploaded.text()).slice(0, 300));
+      console.log('[storage] Mídia migrada:', rel);
+    }
+  }
+  await walk(UPLOAD_DIR);
+}
+
 async function start() {
   await initialize();
   seed();
   await flush();
   fs.mkdirSync(path.join(UPLOAD_DIR, 'images'), { recursive: true });
   fs.mkdirSync(path.join(UPLOAD_DIR, 'videos'), { recursive: true });
+  await migrateLocalMedia();
   const server = http.createServer((req, res) => { handler(req, res); });
   server.listen(PORT, () => {
     console.log(`School Roku CMS API em http://localhost:${PORT}`);
