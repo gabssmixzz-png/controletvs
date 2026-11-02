@@ -966,7 +966,7 @@ async function migrateLocalMedia() {
 
 async function start() {
   await initialize();
-  seed();
+  await seed();
   await flush();
   fs.mkdirSync(path.join(UPLOAD_DIR, 'images'), { recursive: true });
   fs.mkdirSync(path.join(UPLOAD_DIR, 'videos'), { recursive: true });
