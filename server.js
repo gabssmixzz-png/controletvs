@@ -286,8 +286,8 @@ async function handler(req, res) {
         send(res, 400, { error: 'Caminho de mídia inválido' });
         return;
       }
-      const segments = rel.replace(/\\\\/g, '/').split('/');
-      if (!rel || segments.some((part) => !part || part === '.' || part === '..' || part.includes('\\0'))) {
+      const segments = rel.replaceAll(String.fromCharCode(92), '/').split('/');
+      if (!rel || segments.some((part) => !part || part === '.' || part === '..' || part.includes(String.fromCharCode(0)))) {
         send(res, 400, { error: 'Caminho de mídia inválido' });
         return;
       }
