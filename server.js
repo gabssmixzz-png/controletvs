@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
-const { load, save, id, now } = require('./db');
+const { load, save, id, now, initialize, flush } = require('./db');
 const {
   verifyPassword,
   signToken,
@@ -20,6 +20,10 @@ const { seed } = require('./seed');
 const PORT = process.env.PORT || 3080;
 const STORAGE_DIR = process.env.STORAGE_DIR || __dirname;
 const UPLOAD_DIR = path.join(STORAGE_DIR, 'uploads');
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\\/$/, '');
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const MEDIA_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'school-roku-media';
+const USE_SUPABASE_STORAGE = !!(SUPABASE_URL && SUPABASE_KEY);
 const PUBLIC_BASE = (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 
 const ALLOWED_IMAGE = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
@@ -27,9 +31,7 @@ const ALLOWED_VIDEO = new Set(['video/mp4', 'video/quicktime']);
 const MAX_IMAGE = 5 * 1024 * 1024;
 const MAX_VIDEO = 150 * 1024 * 1024;
 
-seed();
-fs.mkdirSync(path.join(UPLOAD_DIR, 'images'), { recursive: true });
-fs.mkdirSync(path.join(UPLOAD_DIR, 'videos'), { recursive: true });
+
 
 function send(res, status, data, headers = {}) {
   const body = typeof data === 'string' ? data : JSON.stringify(data);
@@ -278,6 +280,19 @@ async function handler(req, res) {
 
     if (method === 'GET' && p.startsWith('/media/')) {
       const rel = decodeURIComponent(p.slice('/media/'.length));
+      if (USE_SUPABASE_STORAGE) {
+        const objectUrl = SUPABASE_URL + '/storage/v1/object/' + MEDIA_BUCKET + '/' + rel.split('/').map(encodeURIComponent).join('/');
+        const headers = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY };
+        if (req.headers.range) headers.Range = req.headers.range;
+        const upstream = await fetch(objectUrl, { headers });
+        if (!upstream.ok) { send(res, upstream.status === 404 ? 404 : 502, { error: 'Mídia não encontrada no Storage' }); return; }
+        const responseHeaders = { 'Content-Type': upstream.headers.get('content-type') || 'application/octet-stream',
+          'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=300' };
+        for (const h of ['content-length','content-range']) if (upstream.headers.get(h)) responseHeaders[h === 'content-length' ? 'Content-Length' : 'Content-Range'] = upstream.headers.get(h);
+        res.writeHead(upstream.status, responseHeaders);
+        require('stream').Readable.fromWeb(upstream.body).pipe(res);
+        return;
+      }
       const filePath = path.resolve(UPLOAD_DIR, rel);
       const relative = path.relative(UPLOAD_DIR, filePath);
       if (!relative || relative.startsWith('..') || path.isAbsolute(relative) || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
@@ -638,8 +653,17 @@ async function handler(req, res) {
       const sub = kindStr === 'video' ? 'videos' : 'images';
       const fname = `${Date.now()}_${id()}${ext}`;
       const dest = path.join(UPLOAD_DIR, sub, fname);
-      fs.writeFileSync(dest, filePart.data);
       const hash = crypto.createHash('sha256').update(filePart.data).digest('hex');
+      if (USE_SUPABASE_STORAGE) {
+        const objectPath = sub + '/' + fname;
+        const objectUrl = SUPABASE_URL + '/storage/v1/object/' + MEDIA_BUCKET + '/' + objectPath.split('/').map(encodeURIComponent).join('/');
+        const uploaded = await fetch(objectUrl, { method: 'POST', headers: {
+          apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': ct, 'x-upsert': 'false'
+        }, body: filePart.data });
+        if (!uploaded.ok) { send(res, 502, { error: 'Falha ao enviar arquivo ao Supabase Storage', detail: (await uploaded.text()).slice(0,300) }); return; }
+      } else {
+        fs.writeFileSync(dest, filePart.data);
+      }
       send(res, 201, {
         filePath: dest, relativePath: `${sub}/${fname}`,
         url: `${PUBLIC_BASE}/media/${sub}/${fname}`,
@@ -901,9 +925,18 @@ async function handler(req, res) {
   }
 }
 
-const server = http.createServer((req, res) => { handler(req, res); });
-server.listen(PORT, () => {
-  console.log(`School Roku CMS API em http://localhost:${PORT}`);
-  console.log('Painel administrativo iniciado.');
-  console.log(`PUBLIC_BASE_URL=${PUBLIC_BASE}`);
-});
+async function start() {
+  await initialize();
+  seed();
+  await flush();
+  fs.mkdirSync(path.join(UPLOAD_DIR, 'images'), { recursive: true });
+  fs.mkdirSync(path.join(UPLOAD_DIR, 'videos'), { recursive: true });
+  const server = http.createServer((req, res) => { handler(req, res); });
+  server.listen(PORT, () => {
+    console.log(`School Roku CMS API em http://localhost:${PORT}`);
+    console.log('Painel administrativo iniciado.');
+    console.log(`PUBLIC_BASE_URL=${PUBLIC_BASE}`);
+    console.log(USE_SUPABASE_STORAGE ? '[storage] Supabase Storage ativo.' : '[storage] Armazenamento local ativo.');
+  });
+}
+start().catch(error => { console.error('[startup] Não foi possível iniciar:', error); process.exit(1); });
