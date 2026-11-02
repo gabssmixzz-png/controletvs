@@ -5,12 +5,8 @@ Esta branch prepara a migração sem alterar a branch main nem disparar o deploy
 ## Modelo de dados
 A tabela `public.school_roku_state` guarda o estado atual do CMS em JSONB. Isso preserva o formato usado pelo backend (`users`, `devices`, `contents`, `playlists`, `publications`, `priorityAlerts`, `pairingCodes`, `auditLog`, `settings`, `fairDemo`) e reduz o risco de incompatibilidade.
 
-## Ainda NÃO publicar
-O backend atual usa chamadas síncronas `load()/save()` e grava uploads em disco local. A migração completa exige:
-1. Adaptar as chamadas de persistência para operações assíncronas PostgreSQL.
-2. Migrar o estado JSON existente antes de ativar o novo backend.
-3. Trocar `/api/upload` e `/media/*` para Supabase Storage, mantendo suporte a HTTP Range para vídeo Roku.
-4. Validar login, CRUD, pareamento, playlist e streaming.
+## Estado da implementação
+A branch já contém um adaptador de persistência via Supabase REST e integração do bucket privado. Ainda é necessário validar sintaxe, permissões do projeto Supabase, upload e streaming antes de publicar.
 
 ## Variáveis futuras no Render
 - `DATABASE_URL`: conexão PostgreSQL do Supabase (preferir conexão compatível com o ambiente Render).
