@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>School Roku CMS</title>
+  <title>School Signage · Painel</title>
   <style>
     :root {
       --bg: #0f1419;
@@ -70,23 +70,50 @@
     }
     .err { color: #fca5a5; font-size: 0.9rem; }
     .okmsg { color: #86efac; font-size: 0.9rem; }
+
+    /* Visual refresh; keeps existing API, auth and panel logic intact */
+    :root{--bg:#f3f6fb;--card:#fff;--border:#e2e8f0;--text:#172033;--muted:#64748b;--accent:#2563eb;--accent2:#16a34a;--danger:#dc2626;--warn:#d97706;--surface:#f8fafc;--shadow:0 12px 32px rgba(15,23,42,.07)}
+    body{background:radial-gradient(ellipse at top left,#e8f0ff 0,transparent 38%),var(--bg);color:var(--text);line-height:1.5}
+    header{padding:15px clamp(16px,3vw,36px);background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);box-shadow:0 3px 16px rgba(15,23,42,.04);gap:18px}
+    header h1{font-size:1.12rem;font-weight:850;letter-spacing:-.03em;display:flex;align-items:center;gap:10px}
+    header h1:before{content:"";width:11px;height:11px;border-radius:4px;background:linear-gradient(135deg,#2563eb,#60a5fa);box-shadow:0 0 0 5px #dbeafe}
+    nav{gap:7px} nav button,.btn{color:#334155;background:#fff;border:1px solid #e2e8f0;padding:9px 13px;border-radius:11px;font-weight:650;transition:transform .16s,box-shadow .16s}
+    nav button:hover,.btn:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(15,23,42,.08)}
+    nav button.active,.btn.primary{background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border-color:#2563eb;box-shadow:0 5px 14px rgba(37,99,235,.18)}
+    .btn.danger{color:#fff;background:#dc2626;border-color:#dc2626}.btn.ok{color:#fff;background:#16a34a;border-color:#16a34a}
+    main{max-width:1240px;padding:clamp(16px,3vw,32px)}
+    main:before{content:"CENTRAL DE CONTROLE  /  SCHOOL SIGNAGE";display:block;color:#64748b;font-size:.72rem;font-weight:800;letter-spacing:.13em;margin:0 0 17px}
+    .card{background:rgba(255,255,255,.97);border:1px solid #e5eaf2;border-radius:18px;padding:clamp(17px,2.5vw,25px);margin-bottom:18px;box-shadow:var(--shadow)}
+    .card h2,.card h3{margin:0 0 15px;letter-spacing:-.035em;font-weight:800;color:#172033}.card h2{font-size:1.18rem}.card h3{font-size:1rem}
+    .muted,label{color:#64748b}label{font-size:.82rem;font-weight:700;margin:10px 0 6px}
+    input,select,textarea{background:#f8fafc;color:#172033;border:1px solid #dbe3ee;border-radius:11px;padding:11px 12px;outline:none;transition:border .15s,box-shadow .15s}
+    input:focus,select:focus,textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 4px rgba(59,130,246,.12)}input::placeholder,textarea::placeholder{color:#94a3b8}
+    .row{gap:10px}.badge{font-weight:750;padding:4px 9px}table{border-collapse:separate;border-spacing:0}
+    th{color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;background:#f8fafc}th,td{padding:12px 10px;border-bottom:1px solid #edf1f7}tbody tr:hover td{background:#f8fbff}
+    .preview-box{background:#f8fafc;border-color:#dbe3ee;color:#64748b;border-radius:12px}
+    #login-view{max-width:430px;margin:clamp(50px,12vh,110px) auto;padding:32px}#login-view h1{font-size:1.7rem;font-weight:850;letter-spacing:-.05em;margin:0}
+    #login-view h1:before{content:"";display:block;width:44px;height:44px;border-radius:14px;margin-bottom:18px;background:linear-gradient(135deg,#2563eb,#60a5fa);box-shadow:0 9px 22px #bfdbfe}
+    #login-view .muted{margin:6px 0 22px}#login-view .btn{margin-top:8px;min-height:45px}.err{color:#b91c1c}.okmsg{color:#15803d}
+    @media(max-width:900px){header{align-items:flex-start;flex-direction:column}nav{width:100%}nav button{flex:1 1 auto}main{padding:16px}table{display:block;overflow-x:auto;white-space:nowrap}}
+    @media(max-width:560px){#login-view{margin:24px 14px;padding:23px}nav button{font-size:.82rem;padding:8px 10px}.card{border-radius:15px}.row>input{max-width:100%!important;flex:1 1 100%}}
+
   </style>
 </head>
 <body>
   <div id="login-view" class="card">
-    <h1>School Roku CMS</h1>
-    <p class="muted">Painel administrativo</p>
+    <h1>School Signage</h1>
+    <p class="muted">Acesse o painel para administrar suas TVs e conteúdos.</p>
     <label>E-mail</label>
-    <input id="login-email" type="email" value="admin@escola.local" />
+    <input id="login-email" type="email" autocomplete="username" placeholder="seu@email.com" />
     <label>Senha</label>
-    <input id="login-pass" type="password" value="admin123" />
+    <input id="login-pass" type="password" autocomplete="current-password" placeholder="Digite sua senha" />
     <button class="btn primary" style="width:100%" onclick="doLogin()">Entrar</button>
     <p id="login-err" class="err"></p>
   </div>
 
   <div id="app-view" class="hidden">
     <header>
-      <h1>School Roku CMS</h1>
+      <h1>School Signage</h1>
       <nav>
         <button data-tab="tvs" class="active" onclick="showTab('tvs')">TVs</button>
         <button data-tab="contents" onclick="showTab('contents')">Conteúdos</button>
